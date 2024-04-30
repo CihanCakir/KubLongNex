@@ -1,0 +1,45 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: nexus
+  name: nexus
+  labels:
+    app: nexus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus
+  template:
+    metadata:
+      labels:
+        app: nexus
+    spec: # we must add init container to solving permiision denied messages fo log files
+      initContainers:
+      - name: volume-mount-hack
+        image: busybox
+        command: ["sh", "-c", "chown -R 200:200 /nexus-data"]
+        volumeMounts:
+        - name: nexus
+          mountPath: /nexus-data
+      containers:
+      - name: nexus
+        image: sonatype/nexus3:3.38.0
+        ports:
+          - containerPort: 8081
+            name: default
+          - containerPort: 8080
+            name: specific
+        env:
+        - name: INSTALL4J_ADD_VM_PARAMS
+          value: "-Xms1500m -Xmx1500m -XX:MaxDirectMemorySize=1500m"
+        volumeMounts:
+        - name: nexus
+          mountPath: /nexus-data
+        securityContext:
+          privileged: true
+      volumes:
+      - name: nexus
+        persistentVolumeClaim:
+          claimName: nexuspvc
